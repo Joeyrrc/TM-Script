@@ -1,13 +1,13 @@
 // ==UserScript==
 // @name         Picqer knop naar de Hub (bij orders)
-// @namespace    https://github.com/Joeyrrc/Tampermonkey-Script
+// @namespace    https://github.com/Joeyrrc/TM-Script
 // @version      1.5
 // @description  Plaats Portal-knop links van de Bewerk-knop in de Klant-card op Picqer orderpagina's
 // @match        https://*.picqer.com/*
 // @match        https://app.picqer.com/*
 // @run-at       document-idle
-// @updateURL    https://raw.githubusercontent.com/Joeyrrc/Tampermonkey-Script/main/picqer-hub-button.user.js
-// @downloadURL  https://raw.githubusercontent.com/Joeyrrc/Tampermonkey-Script/main/picqer-hub-button.user.js
+// @updateURL    https://raw.githubusercontent.com/Joeyrrc/TM-Script/main/picqer-hub-button.user.js
+// @downloadURL  https://raw.githubusercontent.com/Joeyrrc/TM-Script/main/picqer-hub-button.user.js
 // @grant        none
 // ==/UserScript==
 (function () {
