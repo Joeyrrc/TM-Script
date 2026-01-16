@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Picqer Annuleerknop verbergen bij rollback
 // @namespace    https://github.com/Joeyrrc/TM-Script
-// @version      1.0
+// @version      1.0.1
 // @description  Verberg annuleerknop als order al verzonden is (rollback preventie)
 // @match        https://rr-commerce.picqer.com/orders/*/cancel
 // @updateURL    https://raw.githubusercontent.com/Joeyrrc/TM-Script/main/picqer-rollback-blocker.user.js
