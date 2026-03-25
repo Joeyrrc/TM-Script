@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Picqer knop naar de Hub (bij orders)
 // @namespace    https://github.com/Joeyrrc/TM-Script
-// @version      1.5
+// @version      1.6
 // @description  Plaats Portal-knop links van de Bewerk-knop in de Klant-card op Picqer orderpagina's
 // @match        https://*.picqer.com/*
 // @match        https://app.picqer.com/*
