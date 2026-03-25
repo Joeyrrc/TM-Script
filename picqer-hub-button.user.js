@@ -13,7 +13,7 @@
 (function () {
   'use strict';
   const BTN_ID = 'rrc-portal-btn-picqer';
-  const BASE_URL = 'https://hub.rrcommerce.nl/open-order';
+  const BASE_URL = 'https://hub.rrcommerce.nl/sales/orders';
   const BLUE = '#0096FF';
   const BLUE_HOVER = '#007BDB';
 
