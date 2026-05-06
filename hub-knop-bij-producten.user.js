@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Hub knop Bij producten
 // @namespace    https://github.com/Joeyrrc/TM-Script
-// @version      1.3
+// @version      1.4
 // @description  Voeg een knop toe naar de hub in de productnavigatie
 // @match        https://*.picqer.com/*
 // @match        https://app.picqer.com/*
@@ -15,7 +15,7 @@
   'use strict';
 
   const BTN_ID = 'rrc-hub-pill';
-  const BASE_URL = 'https://hub.rrcommerce.nl/inventory/products';
+  const BASE_URL = 'https://hub.rrcommerce.nl/products';
 
   function extractSku() {
     // SKU staat in div[title="Productcode"]
