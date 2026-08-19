@@ -1,10 +1,10 @@
 // ==UserScript==
-// @name         Picqer knop naar de Hub (bij orders)
+// @name         WMS knop naar de Hub (bij orders)
 // @namespace    https://github.com/Joeyrrc/TM-Script
-// @version      1.7
-// @description  Plaats Portal-knop links van de Bewerk-knop in de Klant-card op Picqer orderpagina's
-// @match        https://*.picqer.com/*
-// @match        https://app.picqer.com/*
+// @version      1.8
+// @description  Plaats Hub-knop links van de Bewerk-knop in de Klant-card op WMS orderpagina's
+// @match        https://wms.rrcommerce.nl/orders/*
+// @match        https://wms.rrcommerce.nl/*
 // @run-at       document-idle
 // @updateURL    https://raw.githubusercontent.com/Joeyrrc/TM-Script/main/picqer-hub-button.user.js
 // @downloadURL  https://raw.githubusercontent.com/Joeyrrc/TM-Script/main/picqer-hub-button.user.js
@@ -12,7 +12,7 @@
 // ==/UserScript==
 (function () {
   'use strict';
-  const BTN_ID = 'rrc-portal-btn-picqer';
+  const BTN_ID = 'rrc-portal-btn-wms';
   const BASE_URL = 'https://hub.rrcommerce.nl/open-order';
   const BLUE = '#0096FF';
   const BLUE_HOVER = '#007BDB';
@@ -45,17 +45,36 @@
     document.head.appendChild(style);
   }
 
-  // vind ordernummer uit "Referentie" regel (ondersteunt oude én nieuwe HTML-structuur)
+  function normalize(text) {
+    return (text || '').trim().toLowerCase();
+  }
+
+  function getReferenceOrder(value) {
+    const match = (value || '').match(/#\s*(\d{5,})/);
+    return match ? match[1] : null;
+  }
+
+  // vind ordernummer uit "Referentie" regel (ondersteunt Picqer én het nieuwe WMS)
   function findOrderFromReference() {
-    // NIEUWE structuur: <div class="data-list-item"><dt>Referentie</dt><dd>hoesjesdirect.nl #4080526</dd></div>
+    // Nieuwe WMS-structuur: <dt>Referentie</dt><dd>huellendirekt.de #4474985</dd>
+    const definitionTerms = document.querySelectorAll('dt');
+    for (const label of definitionTerms) {
+      if (normalize(label.textContent) !== 'referentie') continue;
+      const row = label.parentElement;
+      const value = row ? row.querySelector('dd') : null;
+      const order = value ? getReferenceOrder(value.textContent) : null;
+      if (order) return order;
+    }
+
+    // Picqer structuur: <div class="data-list-item"><dt>Referentie</dt><dd>hoesjesdirect.nl #4080526</dd></div>
     const newRows = document.querySelectorAll('.data-list-item');
     for (const row of newRows) {
       const label = row.querySelector('dt');
       const value = row.querySelector('dd');
       if (!label || !value) continue;
-      if (label.textContent.trim().toLowerCase() === 'referentie') {
-        const match = value.textContent.match(/#(\d{5,})/);
-        if (match) return match[1];
+      if (normalize(label.textContent) === 'referentie') {
+        const order = getReferenceOrder(value.textContent);
+        if (order) return order;
       }
     }
 
@@ -65,9 +84,9 @@
       const label = row.querySelector('.data-list__item__label');
       const value = row.querySelector('.data-list__item__value');
       if (!label || !value) continue;
-      if (label.textContent.trim().toLowerCase() === 'referentie') {
-        const match = value.textContent.match(/#(\d{5,})/);
-        if (match) return match[1];
+      if (normalize(label.textContent) === 'referentie') {
+        const order = getReferenceOrder(value.textContent);
+        if (order) return order;
       }
     }
 
@@ -76,10 +95,29 @@
 
   // vind de "Klant" card-header en Bewerk-knop
   function findKlantHeader() {
+    const headings = document.querySelectorAll('h2, .card-heading');
+    for (const heading of headings) {
+      if (normalize(heading.textContent) !== 'klant') continue;
+
+      const card = heading.closest('[data-slot="card"], .card');
+      const header =
+        heading.closest('.card-header') ||
+        heading.closest('[class*="border-b"]') ||
+        heading.parentElement;
+
+      if (!header) continue;
+
+      const editBtn =
+        header.querySelector('button, a') ||
+        (card ? card.querySelector('button, a') : null);
+
+      return { header, editBtn };
+    }
+
     const headers = document.querySelectorAll('.card-header');
     for (const h of headers) {
       const heading = h.querySelector('.card-heading');
-      if (heading && heading.textContent.trim().toLowerCase() === 'klant') {
+      if (heading && normalize(heading.textContent) === 'klant') {
         const editBtn = h.querySelector('button, a');
         return { header: h, editBtn };
       }
@@ -122,7 +160,7 @@
     }
 
     lastOrder = order;
-    console.debug('[TM][Picqer] Portal-knop geplaatst in Klant-card →', url);
+    console.debug('[TM][WMS] Hub-knop geplaatst in Klant-card ->', url);
   }
 
   // observer setup
