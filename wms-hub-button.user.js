@@ -1,13 +1,13 @@
 // ==UserScript==
 // @name         WMS knop naar de Hub (bij orders)
 // @namespace    https://github.com/Joeyrrc/TM-Script
-// @version      1.8
+// @version      1.9
 // @description  Plaats Hub-knop links van de Bewerk-knop in de Klant-card op WMS orderpagina's
 // @match        https://wms.rrcommerce.nl/orders/*
 // @match        https://wms.rrcommerce.nl/*
 // @run-at       document-idle
-// @updateURL    https://raw.githubusercontent.com/Joeyrrc/TM-Script/main/picqer-hub-button.user.js
-// @downloadURL  https://raw.githubusercontent.com/Joeyrrc/TM-Script/main/picqer-hub-button.user.js
+// @updateURL    https://raw.githubusercontent.com/Joeyrrc/TM-Script/main/wms-hub-button.user.js
+// @downloadURL  https://raw.githubusercontent.com/Joeyrrc/TM-Script/main/wms-hub-button.user.js
 // @grant        none
 // ==/UserScript==
 (function () {
@@ -36,10 +36,16 @@
         white-space:nowrap;
         vertical-align:middle;
         transition:background .2s ease;
-        margin-right:12px;
+        margin-right:0;
       }
       #${BTN_ID}:hover{
         background:${BLUE_HOVER} !important;
+      }
+      .rrc-wms-hub-actions{
+        display:inline-flex;
+        align-items:center;
+        gap:8px;
+        margin-left:auto;
       }
     `;
     document.head.appendChild(style);
@@ -134,6 +140,26 @@
     return a;
   }
 
+  function placeButtonNextToEdit(header, editBtn, btn) {
+    if (!editBtn || !editBtn.parentNode) {
+      header.appendChild(btn);
+      return;
+    }
+
+    const currentGroup = editBtn.closest('.rrc-wms-hub-actions');
+    if (currentGroup) {
+      currentGroup.insertBefore(btn, editBtn);
+      return;
+    }
+
+    const actions = document.createElement('div');
+    actions.className = 'rrc-wms-hub-actions';
+
+    editBtn.parentNode.insertBefore(actions, editBtn);
+    actions.appendChild(btn);
+    actions.appendChild(editBtn);
+  }
+
   let lastOrder = null;
 
   function placeButton() {
@@ -152,12 +178,8 @@
     const url = `${BASE_URL}/${order}`;
     const btn = makeBtn(url);
 
-    // plaats knop links van Bewerk
-    if (editBtn && editBtn.parentNode) {
-      editBtn.parentNode.insertBefore(btn, editBtn);
-    } else {
-      header.appendChild(btn);
-    }
+    // Plaats Hub en Bewerk samen rechts in de header.
+    placeButtonNextToEdit(header, editBtn, btn);
 
     lastOrder = order;
     console.debug('[TM][WMS] Hub-knop geplaatst in Klant-card ->', url);
