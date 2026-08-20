@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         WMS Backorder Marker met kleuren en slimme comment-check
 // @namespace    https://github.com/Joeyrrc/TM-Script
-// @version      1.4
-// @description  Kleurt WMS-backorders op basis van orderopmerkingen: B2B blauw, niet leverbaar/niet op voorraad groen.
+// @version      1.5
+// @description  Kleurt WMS-backorders op basis van betaalmethode en orderopmerkingen: B2B paars/blauw, niet leverbaar/niet op voorraad groen.
 // @match        https://wms.rrcommerce.nl/backorders*
 // @run-at       document-idle
 // @updateURL    https://raw.githubusercontent.com/Joeyrrc/TM-Script/main/wms-backorder-marker.user.js
@@ -36,6 +36,9 @@
       tr[${ROW_STATUS_ATTR}="stock"] {
         background-color: #f0fdf4 !important;
       }
+      tr[${ROW_STATUS_ATTR}="b2b-payment"] {
+        background-color: #f5f0ff !important;
+      }
       .rrc-wms-comment-badge {
         display: inline-flex;
         align-items: center;
@@ -47,6 +50,20 @@
         color: #111827;
         font-size: 13px;
         font-weight: 700;
+        line-height: 18px;
+        white-space: nowrap;
+        vertical-align: middle;
+      }
+      .rrc-wms-b2b-badge {
+        display: inline-flex;
+        align-items: center;
+        margin-left: 8px;
+        padding: 2px 8px;
+        border-radius: 16px;
+        background-color: #7c3aed;
+        color: #ffffff;
+        font-size: 13px;
+        font-weight: 800;
         line-height: 18px;
         white-space: nowrap;
         vertical-align: middle;
@@ -125,7 +142,27 @@
     return { text: '', count: 0, oldestAge: 0 };
   }
 
-  async function fetchOrderCommentData(orderId, href) {
+  function getFieldValue(doc, fieldName) {
+    const labels = Array.from(doc.querySelectorAll('dt'));
+    const label = labels.find(item => normalize(item.textContent).toLowerCase() === fieldName.toLowerCase());
+    if (!label) return '';
+
+    const value = label.parentElement ? label.parentElement.querySelector('dd') : null;
+    return value ? normalize(value.textContent) : '';
+  }
+
+  function getOrderData(doc) {
+    const commentData = getCommentData(doc);
+    const paymentMethod = getFieldValue(doc, 'Payment Method');
+
+    return {
+      ...commentData,
+      paymentMethod,
+      isPayOnAccount: paymentMethod === 'rrc_pay_on_account',
+    };
+  }
+
+  async function fetchOrderData(orderId, href) {
     const cached = orderCache.get(orderId);
     if (cached && Date.now() - cached.time < CACHE_TTL_MS) return cached.data;
 
@@ -140,7 +177,7 @@
 
     const html = await response.text();
     const doc = new DOMParser().parseFromString(html, 'text/html');
-    const data = getCommentData(doc);
+    const data = getOrderData(doc);
 
     orderCache.set(orderId, { time: Date.now(), data });
     return data;
@@ -182,10 +219,30 @@
     orderLink.insertAdjacentElement('afterend', badge);
   }
 
-  function applyMarker(row, orderLink, commentData) {
-    addCommentBadge(row, orderLink, commentData);
+  function addB2BBadge(row, orderLink) {
+    if (row.querySelector('.rrc-wms-b2b-badge')) return;
 
-    const lower = commentData.text.toLowerCase();
+    const badge = document.createElement('span');
+    badge.className = 'rrc-wms-b2b-badge';
+    badge.textContent = 'B2B';
+    badge.title = 'Payment Method: rrc_pay_on_account';
+
+    orderLink.insertAdjacentElement('afterend', badge);
+  }
+
+  function applyMarker(row, orderLink, orderData) {
+    if (orderData.isPayOnAccount) {
+      addB2BBadge(row, orderLink);
+    }
+
+    addCommentBadge(row, orderLink, orderData);
+
+    if (orderData.isPayOnAccount) {
+      row.setAttribute(ROW_STATUS_ATTR, 'b2b-payment');
+      return;
+    }
+
+    const lower = orderData.text.toLowerCase();
     const isStockComment = lower.includes('niet leverbaar') || lower.includes('niet op voorraad');
 
     if (isStockComment) {
@@ -218,8 +275,8 @@
       row.setAttribute(ROW_STATUS_ATTR, 'loading');
 
       enqueue(async () => {
-        const commentData = await fetchOrderCommentData(match[1], href);
-        applyMarker(row, orderLink, commentData);
+        const orderData = await fetchOrderData(match[1], href);
+        applyMarker(row, orderLink, orderData);
       });
     }
   }
