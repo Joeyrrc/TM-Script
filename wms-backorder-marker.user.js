@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WMS Backorder Marker met kleuren en slimme comment-check
 // @namespace    https://github.com/Joeyrrc/TM-Script
-// @version      1.1
+// @version      1.4
 // @description  Kleurt WMS-backorders op basis van orderopmerkingen: B2B blauw, niet leverbaar/niet op voorraad groen.
 // @match        https://wms.rrcommerce.nl/backorders*
 // @run-at       document-idle
@@ -36,6 +36,21 @@
       tr[${ROW_STATUS_ATTR}="stock"] {
         background-color: #f0fdf4 !important;
       }
+      .rrc-wms-comment-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        margin-left: 8px;
+        padding: 2px 8px;
+        border-radius: 16px;
+        background-color: #ffcc00;
+        color: #111827;
+        font-size: 13px;
+        font-weight: 700;
+        line-height: 18px;
+        white-space: nowrap;
+        vertical-align: middle;
+      }
     `;
     document.head.appendChild(style);
   }
@@ -44,22 +59,75 @@
     return (text || '').replace(/\s+/g, ' ').trim();
   }
 
-  function getCommentText(doc) {
-    const commentsRoot = doc.querySelector('#comments');
-    if (!commentsRoot) return '';
+  function parseCommentAgeDays(dateText) {
+    const text = normalize(dateText).toLowerCase();
 
-    const timelineItems = Array.from(commentsRoot.querySelectorAll('ol li'));
-    const realComments = timelineItems.filter(item => {
-      const text = normalize(item.textContent);
-      return text && !/^aangemaakt\b/i.test(text);
-    });
+    const daysMatch = text.match(/(\d+)\s+dagen?\s+geleden/);
+    if (daysMatch) return parseInt(daysMatch[1], 10);
 
-    return normalize(realComments.map(item => item.textContent).join(' '));
+    const weeksMatch = text.match(/(\d+)\s+weken?\s+geleden/);
+    if (weeksMatch) return parseInt(weeksMatch[1], 10) * 7;
+
+    const monthsMatch = text.match(/(\d+)\s+maanden?\s+geleden/);
+    if (monthsMatch) return parseInt(monthsMatch[1], 10) * 30;
+
+    if (/gisteren/.test(text)) return 1;
+    if (/zojuist|minuten?\s+geleden|uur\s+geleden|uren\s+geleden/.test(text)) return 0;
+
+    return null;
   }
 
-  async function fetchOrderCommentText(orderId, href) {
+  function getCommentAgeFromTime(time) {
+    const datetime = time.getAttribute('datetime');
+    if (datetime) {
+      const date = new Date(datetime);
+      if (!Number.isNaN(date.getTime())) {
+        return Math.max(0, Math.floor((Date.now() - date.getTime()) / 86400000));
+      }
+    }
+
+    return parseCommentAgeDays(time.textContent);
+  }
+
+  function getOldestCommentAgeDays(elements) {
+    let oldestAge = 0;
+
+    for (const element of elements) {
+      const time = element.querySelector('time, span[title]');
+      if (!time) continue;
+
+      const age = getCommentAgeFromTime(time);
+      if (age !== null && age > oldestAge) oldestAge = age;
+    }
+
+    return oldestAge;
+  }
+
+  function getCommentData(doc) {
+    const commentsRoot = doc.querySelector('#comments');
+    if (!commentsRoot) return { text: '', count: 0, oldestAge: 0 };
+
+    const internalComments = Array.from(
+      commentsRoot.querySelectorAll('section[aria-label="Interne opmerkingen"] article')
+    );
+    const internalCommentTexts = internalComments
+      .map(comment => normalize((comment.querySelector('p') || comment).textContent))
+      .filter(Boolean);
+
+    if (internalCommentTexts.length) {
+      return {
+        text: normalize(internalCommentTexts.join(' ')),
+        count: internalCommentTexts.length,
+        oldestAge: getOldestCommentAgeDays(internalComments),
+      };
+    }
+
+    return { text: '', count: 0, oldestAge: 0 };
+  }
+
+  async function fetchOrderCommentData(orderId, href) {
     const cached = orderCache.get(orderId);
-    if (cached && Date.now() - cached.time < CACHE_TTL_MS) return cached.text;
+    if (cached && Date.now() - cached.time < CACHE_TTL_MS) return cached.data;
 
     const response = await fetch(href, {
       credentials: 'same-origin',
@@ -72,10 +140,10 @@
 
     const html = await response.text();
     const doc = new DOMParser().parseFromString(html, 'text/html');
-    const text = getCommentText(doc);
+    const data = getCommentData(doc);
 
-    orderCache.set(orderId, { time: Date.now(), text });
-    return text;
+    orderCache.set(orderId, { time: Date.now(), data });
+    return data;
   }
 
   function enqueue(task) {
@@ -103,8 +171,21 @@
       .find(link => /\/orders\/\d+/.test(link.getAttribute('href') || ''));
   }
 
-  function applyMarker(row, commentText) {
-    const lower = commentText.toLowerCase();
+  function addCommentBadge(row, orderLink, commentData) {
+    if (!commentData.count || row.querySelector('.rrc-wms-comment-badge')) return;
+
+    const badge = document.createElement('span');
+    badge.className = 'rrc-wms-comment-badge';
+    badge.textContent = `💬 ${commentData.count}${commentData.oldestAge > 14 ? ' 📤' : ''}`;
+    badge.title = `${commentData.count} interne opmerking${commentData.count === 1 ? '' : 'en'}`;
+
+    orderLink.insertAdjacentElement('afterend', badge);
+  }
+
+  function applyMarker(row, orderLink, commentData) {
+    addCommentBadge(row, orderLink, commentData);
+
+    const lower = commentData.text.toLowerCase();
     const isStockComment = lower.includes('niet leverbaar') || lower.includes('niet op voorraad');
 
     if (isStockComment) {
@@ -137,8 +218,8 @@
       row.setAttribute(ROW_STATUS_ATTR, 'loading');
 
       enqueue(async () => {
-        const commentText = await fetchOrderCommentText(match[1], href);
-        applyMarker(row, commentText);
+        const commentData = await fetchOrderCommentData(match[1], href);
+        applyMarker(row, orderLink, commentData);
       });
     }
   }
