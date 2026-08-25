@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Hub order naar de WMS
 // @namespace    https://github.com/Joeyrrc/TM-Script
-// @version      1.0
+// @version      1.1
 // @description  Plaats een WMS-knop op Hub orderpagina's bij de WMS Orders kaart
 // @match        https://hub.rrcommerce.nl/orders/*
 // @run-at       document-idle
