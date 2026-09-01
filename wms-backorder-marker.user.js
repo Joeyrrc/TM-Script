@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WMS Backorder Marker met kleuren en slimme comment-check
 // @namespace    https://github.com/Joeyrrc/TM-Script
-// @version      1.5
+// @version      1.7
 // @description  Kleurt WMS-backorders op basis van betaalmethode en orderopmerkingen: B2B paars/blauw, niet leverbaar/niet op voorraad groen.
 // @match        https://wms.rrcommerce.nl/backorders*
 // @run-at       document-idle
@@ -124,12 +124,12 @@
     const commentsRoot = doc.querySelector('#comments');
     if (!commentsRoot) return { text: '', count: 0, oldestAge: 0 };
 
-    const internalComments = Array.from(
-      commentsRoot.querySelectorAll('section[aria-label="Interne opmerkingen"] article')
+    const internalComments = getInternalCommentElements(commentsRoot);
+    const internalCommentTexts = getUniqueTexts(
+      internalComments
+        .map(comment => normalize(getInternalCommentText(comment)))
+        .filter(Boolean)
     );
-    const internalCommentTexts = internalComments
-      .map(comment => normalize((comment.querySelector('p') || comment).textContent))
-      .filter(Boolean);
 
     if (internalCommentTexts.length) {
       return {
@@ -140,6 +140,63 @@
     }
 
     return { text: '', count: 0, oldestAge: 0 };
+  }
+
+  function getInternalCommentElements(commentsRoot) {
+    const elements = [
+      ...commentsRoot.querySelectorAll('section[aria-label="Interne opmerkingen"] article'),
+      ...commentsRoot.querySelectorAll('[aria-label="Interne opmerkingen"] [data-slot="card"]'),
+      ...Array.from(commentsRoot.querySelectorAll('ol li')).filter(item => item.querySelector('p')),
+      ...commentsRoot.querySelectorAll('[data-comment-id], [data-idcomment]'),
+      ...commentsRoot.querySelectorAll('input[name="idcomment"], input[name="idcomment"] + *'),
+    ];
+
+    return getUniqueElements(
+      elements
+        .map(element => element.closest('article, [data-slot="card"], li, div') || element)
+        .filter(element => commentsRoot.contains(element))
+        .filter(element => element.closest('ol') === null || isTimelineComment(element))
+    );
+  }
+
+  function getInternalCommentText(commentElement) {
+    const textElement =
+      commentElement.querySelector('p.whitespace-pre-wrap, p.whitespace-pre-line, [class*="whitespace-pre-wrap"], [class*="whitespace-pre-line"]') ||
+      commentElement.querySelector('p');
+
+    if (textElement) return textElement.textContent;
+
+    const clone = commentElement.cloneNode(true);
+    clone.querySelectorAll('form, input, button, svg, time, [aria-hidden="true"]').forEach(element => element.remove());
+    return clone.textContent;
+  }
+
+  function isTimelineComment(element) {
+    if (!element.matches('li')) return false;
+    if (!element.querySelector('p')) return false;
+    if (element.querySelector('a[href^="/picklists/"], a[href^="/settings/rules/"]')) return false;
+
+    const text = normalize(element.textContent).toLowerCase();
+    return text && !text.startsWith('aangemaakt');
+  }
+
+  function getUniqueTexts(texts) {
+    const seen = new Set();
+    return texts.filter(text => {
+      const key = text.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  function getUniqueElements(elements) {
+    const seen = new Set();
+    return elements.filter(element => {
+      if (seen.has(element)) return false;
+      seen.add(element);
+      return true;
+    });
   }
 
   function getFieldValue(doc, fieldName) {
