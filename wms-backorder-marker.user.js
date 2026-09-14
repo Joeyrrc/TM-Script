@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WMS Backorder Marker met kleuren en slimme comment-check
 // @namespace    https://github.com/Joeyrrc/TM-Script
-// @version      1.8
+// @version      1.9
 // @description  Kleurt WMS-backorders op basis van betaalmethode en orderopmerkingen: B2B paars/blauw, niet leverbaar/niet op voorraad groen.
 // @match        https://wms.rrcommerce.nl/backorders*
 // @run-at       document-idle
@@ -17,6 +17,7 @@
   const ROW_STATUS_ATTR = 'data-rrc-backorder-marker';
   const CACHE_TTL_MS = 5 * 60 * 1000;
   const CONCURRENCY = 3;
+  const TICKET_EVENT_TITLE = 'product niet op voorraad - ticket aangemaakt';
 
   const orderCache = new Map();
   const queue = [];
@@ -47,6 +48,21 @@
         border-radius: 16px;
         background-color: #7c3aed;
         color: #ffffff;
+        font-size: 13px;
+        font-weight: 800;
+        line-height: 18px;
+        white-space: nowrap;
+        vertical-align: middle;
+      }
+      .rrc-wms-ticket-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        margin-left: 8px;
+        padding: 2px 8px;
+        border-radius: 16px;
+        background-color: #ffcc00;
+        color: #111827;
         font-size: 13px;
         font-weight: 800;
         line-height: 18px;
@@ -95,7 +111,7 @@
     let oldestAge = 0;
 
     for (const element of elements) {
-      const time = element.querySelector('time, span[title]');
+      const time = element.querySelector('time, span[title], .text-muted-foreground');
       if (!time) continue;
 
       const age = getCommentAgeFromTime(time);
@@ -107,8 +123,9 @@
 
   function getCommentData(doc) {
     const commentsRoot = doc.querySelector('#comments');
-    if (!commentsRoot) return { text: '', count: 0, oldestAge: 0 };
+    if (!commentsRoot) return { text: '', count: 0, oldestAge: 0, ticketCount: 0, ticketOldestAge: 0 };
 
+    const ticketComments = getTicketTimelineComments(commentsRoot);
     const internalComments = getInternalCommentElements(commentsRoot);
     const internalCommentTexts = getUniqueTexts(
       internalComments
@@ -121,10 +138,18 @@
         text: normalize(internalCommentTexts.join(' ')),
         count: internalCommentTexts.length,
         oldestAge: getOldestCommentAgeDays(internalComments),
+        ticketCount: ticketComments.length,
+        ticketOldestAge: getOldestCommentAgeDays(ticketComments),
       };
     }
 
-    return { text: '', count: 0, oldestAge: 0 };
+    return {
+      text: '',
+      count: 0,
+      oldestAge: 0,
+      ticketCount: ticketComments.length,
+      ticketOldestAge: getOldestCommentAgeDays(ticketComments),
+    };
   }
 
   function getInternalCommentElements(commentsRoot) {
@@ -157,12 +182,24 @@
   }
 
   function isTimelineComment(element) {
-    if (!element.matches('li')) return false;
-    if (!element.querySelector('p')) return false;
-    if (element.querySelector('a[href^="/picklists/"], a[href^="/settings/rules/"]')) return false;
+    return isTicketTimelineComment(element);
+  }
 
-    const text = normalize(element.textContent).toLowerCase();
-    return text && !text.startsWith('aangemaakt');
+  function isTicketTimelineComment(element) {
+    if (!element.matches('li') || !element.querySelector('p')) return false;
+
+    const title = getTimelineTitle(element).toLowerCase();
+    return title === TICKET_EVENT_TITLE;
+  }
+
+  function getTimelineTitle(element) {
+    const titleElement = element.querySelector('.font-medium.text-foreground, .font-medium');
+    return titleElement ? normalize(titleElement.textContent) : '';
+  }
+
+  function getTicketTimelineComments(commentsRoot) {
+    return Array.from(commentsRoot.querySelectorAll('ol li'))
+      .filter(item => isTicketTimelineComment(item));
   }
 
   function getUniqueTexts(texts) {
@@ -261,10 +298,23 @@
     orderLink.insertAdjacentElement('afterend', badge);
   }
 
+  function addTicketBadge(row, orderLink, orderData) {
+    if (!orderData.ticketCount || row.querySelector('.rrc-wms-ticket-badge')) return;
+
+    const badge = document.createElement('span');
+    badge.className = 'rrc-wms-ticket-badge';
+    badge.textContent = `💬 ${orderData.ticketCount}${orderData.ticketOldestAge > 14 ? ' 📤' : ''}`;
+    badge.title = `${orderData.ticketCount} ticket-opmerking${orderData.ticketCount === 1 ? '' : 'en'} gevonden`;
+
+    orderLink.insertAdjacentElement('afterend', badge);
+  }
+
   function applyMarker(row, orderLink, orderData) {
     if (orderData.isPayOnAccount) {
       addB2BBadge(row, orderLink);
     }
+
+    addTicketBadge(row, orderLink, orderData);
 
     if (orderData.isPayOnAccount) {
       row.setAttribute(ROW_STATUS_ATTR, 'b2b-payment');
