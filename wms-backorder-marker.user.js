@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WMS Backorder Marker met kleuren en slimme comment-check
 // @namespace    https://github.com/Joeyrrc/TM-Script
-// @version      1.7
+// @version      1.8
 // @description  Kleurt WMS-backorders op basis van betaalmethode en orderopmerkingen: B2B paars/blauw, niet leverbaar/niet op voorraad groen.
 // @match        https://wms.rrcommerce.nl/backorders*
 // @run-at       document-idle
@@ -38,21 +38,6 @@
       }
       tr[${ROW_STATUS_ATTR}="b2b-payment"] {
         background-color: #f5f0ff !important;
-      }
-      .rrc-wms-comment-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        margin-left: 8px;
-        padding: 2px 8px;
-        border-radius: 16px;
-        background-color: #ffcc00;
-        color: #111827;
-        font-size: 13px;
-        font-weight: 700;
-        line-height: 18px;
-        white-space: nowrap;
-        vertical-align: middle;
       }
       .rrc-wms-b2b-badge {
         display: inline-flex;
@@ -265,17 +250,6 @@
       .find(link => /\/orders\/\d+/.test(link.getAttribute('href') || ''));
   }
 
-  function addCommentBadge(row, orderLink, commentData) {
-    if (!commentData.count || row.querySelector('.rrc-wms-comment-badge')) return;
-
-    const badge = document.createElement('span');
-    badge.className = 'rrc-wms-comment-badge';
-    badge.textContent = `💬 ${commentData.count}${commentData.oldestAge > 14 ? ' 📤' : ''}`;
-    badge.title = `${commentData.count} interne opmerking${commentData.count === 1 ? '' : 'en'}`;
-
-    orderLink.insertAdjacentElement('afterend', badge);
-  }
-
   function addB2BBadge(row, orderLink) {
     if (row.querySelector('.rrc-wms-b2b-badge')) return;
 
@@ -291,8 +265,6 @@
     if (orderData.isPayOnAccount) {
       addB2BBadge(row, orderLink);
     }
-
-    addCommentBadge(row, orderLink, orderData);
 
     if (orderData.isPayOnAccount) {
       row.setAttribute(ROW_STATUS_ATTR, 'b2b-payment');
