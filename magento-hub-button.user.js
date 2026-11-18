@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Magento knop naar de Hub (bij orders)
 // @namespace    https://github.com/Joeyrrc/TM-Script
-// @version      1.2
+// @version      1.3
 // @description  Plaats een Hub-knop naast het ordernummer in Magento orders
 // @match        https://*/sales/order/view/*
 // @match        https://*/*/sales/order/view/*
@@ -16,7 +16,7 @@
 
   const BTN_ID = 'rrc-portal-btn-magento';
   const STYLE_ID = 'rrc-portal-style-magento';
-  const BASE_URL = 'https://hub.rrcommerce.nl/open-order';
+  const BASE_URL = 'https://suite.rrcommerce.nl/sales/open-order';
   const BLUE = '#0096FF';
   const BLUE_HOVER = '#007BDB';
 

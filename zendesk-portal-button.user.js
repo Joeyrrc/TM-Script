@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Zendesk Portal Knop (in app sidebar)
 // @namespace    https://github.com/Joeyrrc/TM-Script
-// @version      1.4
+// @version      1.5
 // @description  Plaats portal-knop naast ordernummer in de Webshop Orders app (iframe)
 // @match        https://rrcommerce.zendesk.com/*
 // @match        https://*.apps.zdusercontent.com/*
@@ -15,7 +15,7 @@
   'use strict';
 
   const BTN_ID = 'rrc-portal-btn';
-  const BASE_URL = 'https://hub.rrcommerce.nl/open-order/';
+  const BASE_URL = 'https://suite.rrcommerce.nl/sales/open-order';
   // Vind ordernummer uit de H1 van de app (met #)
   function findHeaderAndOrder() {
     const h1 = document.querySelector('h1.flex') || document.querySelector('h1');

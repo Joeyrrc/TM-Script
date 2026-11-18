@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         Hub order naar de WMS
 // @namespace    https://github.com/Joeyrrc/TM-Script
-// @version      1.1
+// @version      1.3
 // @description  Plaats een WMS-knop op Hub orderpagina's bij de WMS Orders kaart
-// @match        https://hub.rrcommerce.nl/orders/*
+// @match        https://suite.rrcommerce.nl/*
 // @run-at       document-idle
 // @updateURL    https://raw.githubusercontent.com/Joeyrrc/TM-Script/main/hub-order-wms-button.user.js
 // @downloadURL  https://raw.githubusercontent.com/Joeyrrc/TM-Script/main/hub-order-wms-button.user.js
@@ -101,6 +101,8 @@
   let lastKey = null;
 
   function placeButton() {
+    if (!/^\/(?:sales\/)?orders\/\d+/.test(location.pathname)) return;
+
     ensureStyle();
 
     const card = getWmsCard();
