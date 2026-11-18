@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WMS knop naar de Hub (bij orders)
 // @namespace    https://github.com/Joeyrrc/TM-Script
-// @version      2.1
+// @version      2.3
 // @description  Plaats Hub-knop links van de Bewerk-knop in de Klant-card op WMS orderpagina's
 // @match        https://wms.rrcommerce.nl/orders/*
 // @match        https://wms.rrcommerce.nl/*
@@ -13,7 +13,7 @@
 (function () {
   'use strict';
   const BTN_ID = 'rrc-portal-btn-wms';
-  const BASE_URL = 'https://hub.rrcommerce.nl/open-order';
+  const BASE_URL = 'https://suite.rrcommerce.nl/sales/open-order/';
   const BLUE = '#0096FF';
   const BLUE_HOVER = '#007BDB';
 
@@ -175,7 +175,7 @@
     if (existing && lastOrder === order) return;
     if (existing && lastOrder !== order) existing.remove();
 
-    const url = `${BASE_URL}/${order}`;
+    const url = `${BASE_URL}${encodeURIComponent(order)}`;
     const btn = makeBtn(url);
 
     // Plaats Hub en Bewerk samen rechts in de header.
