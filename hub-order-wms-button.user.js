@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         Hub order naar de WMS
 // @namespace    https://github.com/Joeyrrc/TM-Script
-// @version      1.3
-// @description  Plaats een WMS-knop op Hub orderpagina's bij de WMS Orders kaart
+// @version      1.5
+// @description  Plaats WMS-knoppen naast de pagina-acties en bij de WMS Orders kaart
 // @match        https://suite.rrcommerce.nl/*
 // @run-at       document-idle
 // @updateURL    https://raw.githubusercontent.com/Joeyrrc/TM-Script/main/hub-order-wms-button.user.js
@@ -14,6 +14,7 @@
   'use strict';
 
   const BTN_ID = 'rrc-hub-order-wms-btn';
+  const PAGE_BTN_ID = 'rrc-hub-order-wms-page-btn';
   const STYLE_ID = 'rrc-hub-order-wms-style';
   const WMS_SEARCH_URL = 'https://wms.rrcommerce.nl/orders';
 
@@ -27,13 +28,13 @@
     const style = document.createElement('style');
     style.id = STYLE_ID;
     style.textContent = `
-      #${BTN_ID} {
+      #${BTN_ID}, #${PAGE_BTN_ID} {
         background: #6b21fc;
         border-color: #6b21fc;
         color: #ffffff;
         text-decoration: none;
       }
-      #${BTN_ID}:hover {
+      #${BTN_ID}:hover, #${PAGE_BTN_ID}:hover {
         background: #581cdb !important;
         border-color: #581cdb !important;
         color: #ffffff !important;
@@ -64,12 +65,14 @@
   }
 
   function makeWmsUrl(orderCode) {
-    return `${WMS_SEARCH_URL}?search=${encodeURIComponent(orderCode)}`;
+    const url = new URL(WMS_SEARCH_URL);
+    url.search = new URLSearchParams({ pageSize: '25', sort: 'updated:desc', q: orderCode }).toString();
+    return url.href;
   }
 
-  function makeButton(url, templateButton) {
+  function makeButton(url, templateButton, id = BTN_ID) {
     const a = document.createElement('a');
-    a.id = BTN_ID;
+    a.id = id;
     a.href = url;
     a.target = '_blank';
     a.rel = 'noopener noreferrer';
@@ -98,32 +101,43 @@
     return actionButton ? actionButton.parentElement : null;
   }
 
-  let lastKey = null;
+  function ensureButton(actions, url, id, before) {
+    const existing = document.getElementById(id);
+    if (existing && actions.contains(existing)) {
+      if (existing.href !== url) existing.href = url;
+      return;
+    }
+    if (existing) existing.remove();
+
+    const button = makeButton(url, actions.querySelector('button'), id);
+    actions.insertBefore(button, before);
+  }
 
   function placeButton() {
-    if (!/^\/(?:sales\/)?orders\/\d+/.test(location.pathname)) return;
+    if (!/^\/(?:order-management\/|sales\/)?orders\/\d+(?:\/|$)/.test(location.pathname)) {
+      document.getElementById(BTN_ID)?.remove();
+      document.getElementById(PAGE_BTN_ID)?.remove();
+      return;
+    }
 
     ensureStyle();
 
     const card = getWmsCard();
-    if (!card) return;
-
-    const orderCode = getWmsOrderCode(card);
+    const orderCode = card ? getWmsOrderCode(card) : null;
     const hubOrder = getHubOrderNumber();
-    const key = orderCode || hubOrder;
-    const actions = findWmsOrderActions(card);
-    if (!key || !actions) return;
+    const key = hubOrder || orderCode;
+    if (!key) return;
 
-    const existing = document.getElementById(BTN_ID);
-    if (existing && lastKey === key) return;
-    if (existing) existing.remove();
+    const url = makeWmsUrl(key);
+    const pageActions = document.querySelector('[aria-label="Pagina-acties"]');
+    const actionButton = pageActions && Array.from(pageActions.querySelectorAll('button'))
+      .find(button => normalize(button.textContent) === 'Acties');
+    if (actionButton) {
+      ensureButton(actionButton.parentElement, url, PAGE_BTN_ID, actionButton.nextSibling);
+    }
 
-    const templateButton = actions.querySelector('button');
-    const button = makeButton(makeWmsUrl(key), templateButton);
-    actions.insertBefore(button, actions.firstElementChild);
-
-    lastKey = key;
-    console.debug('[TM][Hub] WMS-knop geplaatst ->', button.href);
+    const actions = card ? findWmsOrderActions(card) : null;
+    if (actions) ensureButton(actions, url, BTN_ID, actions.firstElementChild);
   }
 
   function init() {
