@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         WMS Hub knop bij producten
 // @namespace    https://github.com/Joeyrrc/TM-Script
-// @version      2.7
+// @version      2.8
 // @description  Voeg een Hub-knop toe aan de productnavigatie in WMS
 // @match        https://wms.rrcommerce.nl/products/*
 // @run-at       document-idle
@@ -14,7 +14,7 @@
   'use strict';
 
   const BTN_ID = 'rrc-hub-pill';
-  const BASE_URL = 'https://suite.rrcommerce.nl/products';
+  const BASE_URL = 'https://suite.rrcommerce.nl/catalog/products';
 
   function getHubLogoUrl() {
     const icon =
